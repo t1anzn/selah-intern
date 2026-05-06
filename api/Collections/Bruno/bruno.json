@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Selah Intern Sandbox API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
