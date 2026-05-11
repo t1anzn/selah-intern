@@ -1,3 +1,153 @@
+.risk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 4px 4px 4px 8px;
+  margin-right: 0;
+  letter-spacing: 0;
+  background: var(--color-border);
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.risk-pill--high {
+  background: #fee;
+  color: var(--color-error);
+}
+
+.risk-pill--medium {
+  background: #fef3e0;
+  color: #b26a00;
+}
+
+.risk-pill--low {
+  background: #e8f5e9;
+  color: #357a38;
+}
+
+.risk-pill__main {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 72px;
+}
+
+.risk-pill__meaning {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.risk-pill__meta {
+  margin-top: 1px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.risk-pill__score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  background: #fff;
+}
+
+.risk-pill--high .risk-pill__score {
+  color: var(--color-error);
+}
+
+.risk-pill--medium .risk-pill__score {
+  color: #8f5800;
+}
+
+.risk-pill--low .risk-pill__score {
+  color: #2d6c30;
+}
+
+.user-card--dense {
+  padding: 12px 10px;
+}
+.user-card__header--dense {
+  margin-bottom: 8px;
+}
+.user-card__summary--dense {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 2px 0 0;
+}
+.user-card__summary-main {
+  color: var(--color-text);
+}
+.user-card__details--dense {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin: 0 0 4px 0;
+}
+.detail--dense {
+  font-size: 11px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.detail--dense dt {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  min-width: 55px;
+  margin: 0;
+  font-weight: 500;
+}
+.detail--dense dd {
+  margin: 0;
+  font-size: 11px;
+}
+.user-card__extras {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+.user-card__extra {
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+.progress-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.progress-badge--ontrack {
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+.progress-badge--behind {
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
+}
+.progress-badge--ahead {
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
 :root {
   --color-bg: #f7f7f5;
   --color-surface: #ffffff;
@@ -5,7 +155,12 @@
   --color-text: #1a1a1a;
   --color-text-muted: #6b6b6b;
   --color-error: #c53030;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
 }
@@ -63,6 +218,124 @@ body {
   padding: 16px;
 }
 
+.user-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.user-card__header--dense {
+  margin-bottom: 8px;
+}
+
+.user-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.user-card__name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.user-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.badge {
+  font-size: 10px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  color: var(--color-text);
+  white-space: nowrap;
+  background: #f0f0f0;
+  font-weight: 500;
+}
+
+.badge--strong {
+  color: var(--color-text);
+}
+
+.badge--delivery-issue {
+  background: #fee;
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+.badge--onboarding {
+  background: #fff4df;
+  color: #a86600;
+  font-weight: 600;
+}
+
+.badge--risk-high {
+  background: #fee;
+  color: var(--color-error);
+}
+
+.badge--risk-medium {
+  color: var(--color-text);
+}
+
+.badge--risk-low {
+  color: var(--color-text-muted);
+}
+
+.status-pill {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: none;
+  color: var(--color-text);
+  white-space: nowrap;
+  background: #f0f0f0;
+  font-weight: 500;
+}
+
+.status-pill--active {
+  color: var(--color-text);
+  background: #f0f0f0;
+}
+
+.status-pill--paused,
+.status-pill--new {
+  color: var(--color-text-muted);
+  background: #f0f0f0;
+}
+
+.status-pill--at-risk,
+.status-pill--lapsed,
+.status-pill--delivery-issue {
+  background: #fee;
+  color: var(--color-error);
+}
+
+.user-card--risk-high {
+  border-color: var(--color-error);
+  border-left: 3px solid var(--color-error);
+  background: var(--color-surface);
+}
+
+.user-card--risk-medium {
+  border-left: 3px solid #b26a00;
+  background: var(--color-surface);
+}
+
+.user-card--risk-low {
+  border-left: 3px solid var(--color-border);
+  background: var(--color-surface);
+}
+
 .user-card__name {
   margin: 0 0 4px;
   font-size: 16px;
@@ -70,8 +343,51 @@ body {
 }
 
 .user-card__email {
-  margin: 0;
+  margin: 4px 0 0;
   color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: 12px;
   word-break: break-all;
+}
+
+.user-card__summary {
+  margin: 6px 0 0;
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.user-card__details {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin: 0;
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.detail--full {
+  grid-template-columns: 90px 1fr;
+}
+
+.detail dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.detail dd {
+  margin: 0;
+  font-size: 13px;
+}
+
+.note-excerpt {
+  color: var(--color-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
