@@ -41,3 +41,48 @@ That is why the card does not try to show every available metric. It uses a comp
 - Less important data stays out of the headline area so the card remains scannable.
 
 This gave the dashboard a cleaner structure: the team can scan the grid for the risk pill and badges first, then read the supporting details only when they need more context.
+
+## Task 1.1: Scale
+
+At 50 users, the current in-memory setup is fine for prototyping. At 5,000 I wouldn't expect the app to fail immediately, but would expect the dashboard to start becoming inefficient and noticeably slower. The main scaling issues would begin with backend computation and frontend rendering rather than raw infrastructure limits.
+
+### What breaks first
+
+The first bottleneck is the backend endpoint that builds user summaries. For every user, it repeatedly scans whole arrays with `.find()` and `.filter()`:
+
+```typescript
+const preference = db.preferences.find((p) => p.userId === user.id) ?? null;
+const readings = db.readings.filter((r) => r.userId === user.id);
+const notes = db.notes.filter((n) => n.userId === user.id);
+const inbound = db.inboundEmailLog.filter((l) => l.userId === user.id);
+const subscriptions = db.subscriptions.filter((s) => s.userId === user.id);
+const payments = db.payments.filter((p) => p.userId === user.id);
+```
+
+With 5,000 users, that becomes a lot of repeated table scans plus date parsing and churn-score calculation for every card. I would describe the overall work as roughly O(n^2) if the related tables grow with the user count.
+
+The second bottleneck would likely be the frontend. The dashboard currently fetches and displays every user card at once, which means React has to create and manage thousands of components simultaneously. Even if the API remained fast enough, the page would likely become slower to load, use more browser memory, and feel laggy when scrolling.
+
+### What I would change, in order
+
+1. **Add pagination to the API.** Instead of returning every summary at once, I would start with something like `/api/user-summaries?page=1&limit=50`. This would reduce backend computation per request, shrink response payload sizes, and stop the frontend from needing to load and render thousands of cards simultaneously.
+
+2. **Add filtering and sorting.** The growth team probably cares most about high-risk, inactive, or failed-subscription users. Letting them query those slices means the app does less work and returns less data than needed, improving the efficiency.
+
+3. **Improve in-memory lookups.** Instead of repeatedly scanning arrays with `.filter()` and `.find()` for every user summary, I would group related records by `userId` in memory first. For example, rather than looping through every reading to find a user’s records each time, the backend could build a lookup object like `readingsByUser[userId]` once and reuse it across all summaries. That would allow the backend to retrieve related data through direct lookups instead of repeatedly scanning entire datasets, significantly reducing unnecessary computation.
+
+4. **Update summary data asynchronously.** Instead of recalculating churn risk, streaks, and engagement metrics every time the endpoint is called, I would move these calculations into background jobs or scheduled cron jobs. That would make requests faster because the dashboard would mostly read precomputed summary data.
+
+5. **Move to a real database when the data model grows.** Once the dashboard needs persistence, better concurrency, or more complex querying, I would move the summary data into SQLite first, then Postgres if the product outgrows that.
+
+### Database considerations
+
+I would not start with a database migration for 5,000 users alone. My position is that pagination and better in-memory lookups would provide the biggest performance improvements with the least added complexity. A database becomes the right next step when the app needs persistence, indexes, or multiple processes reading and writing the same data.
+
+### Where I am uncertain
+
+- I am unsure how fresh the dashboard data needs to be. If near real-time updates are important, cron-job-based summary updates may not be sufficient and a more event-driven approach could be needed.
+
+- I am also unsure whether it would be better long-term to calculate metrics like churn risk, streaks, and engagement dynamically from the database each request, or precompute and store them per user. Precomputing would improve performance, but it also adds complexity around making sure the stored metrics stay updated whenever the underlying user activity changes.
+
+- I am also uncertain how many internal users would be accessing the dashboard at the same time. 5,000 stored users may still be manageable on a single server, but multiple people making requests simultaneously could increase backend load and change where the main bottlenecks appear.
