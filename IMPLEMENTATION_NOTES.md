@@ -111,14 +111,80 @@ Read-only table endpoints:
 
 ---
 
+## Disengaged Users Endpoint
+
+**File:** api/src/routes.ts, Endpoint: `GET /api/disengaged-users`
+
+Identifies users who haven't read in the last 7 days and surfaces them with a 4-tier priority system:
+
+### Scoring Algorithm
+
+1. **Base risk:** `(daysSilent / 30) × 50`, capped at 50
+2. **Multiplier:** Compares silence to user's personal reading gap; softened to prevent extreme spikes
+3. **Clamp:** Final score clamped to 0–100
+
+### Priority Buckets
+
+- **Priority 3 (urgent) — Failed conversions:** Joined but never subscribed/engaged (≥7 days). Score floor ≥85.
+- **Priority 3 (urgent) — Recent churn:** Unsubscribed but were previously reading. Score floor ≥80.
+- **Priority 2 (high) — Onboarding stalls:** Subscribed but never read within first 14 days. Score floor ≥65.
+- **Priority 1 (medium) — Long-term silence:** Subscribed, silent ≥30 days. Scores compressed to 70–80 range via soft compression toward baseline (65) + boost (+6).
+
+### Long-Term Silence Scoring Detail
+
+Instead of aggressively reducing scores, paying users with 30+ days silence get:
+1. Soft compression: `baseline + (risk - baseline) × 0.25` pulls high scores toward 65
+2. Additive boost: +6 to maintain visibility
+3. Result: Scores cluster around 73–80 instead of 100, but ordering is preserved
+
+This keeps long-term silent users visible without crowding urgent buckets.
+
+### Sorting
+
+Primary: by priority level (higher first)
+Secondary: P1 users sorted by `daysSinceLastRead` (longest silent first)
+Fallback: by disengagement risk
+
+### Attention Flags
+
+Users can have multiple flags: "No reads yet", "Onboarding stall", "Long-term silence", "Recent churn", "Failed conversion"
+
+---
+
+## Cancellation Date Tracking
+
+**Files:** api/src/routes.ts
+
+Both `/api/user-summaries` and `/api/disengaged-users` now include `daysSinceCanceled` (calculated from subscription's `canceledAt` timestamp):
+
+- For canceled subscriptions: `Math.floor((now - canceledAt) / MS_PER_DAY)`
+- For active subscriptions: `null`
+- For users who never subscribed: `null`
+
+### Frontend Display (DisengagedView)
+
+- If `daysSinceCanceled` exists: shows subscription start date + tenure, then `→ Canceled X days ago` in red
+- If unsubscribed but no cancellation date: shows `→ Canceled (missing date)` in red
+- If never subscribed: shows "Never"
+
+---
+
 ## Type Definitions
 
 **File:** web/src/types.ts
 
-Updated `UserSummary`:
-
-- `UserSummary`: Shared frontend type for the aggregated dashboard payload returned by `GET /api/user-summaries`
-
+### UserSummary
+Shared frontend type for `GET /api/user-summaries`:
 - `scores.churnRisk` (0–100): Raw risk score
 - `scores.churnRiskLabel` ('low' | 'medium' | 'high'): Risk classification
 - `hasDeliveryIssue` (boolean): Email reachability flag
+- `subscription.canceledAt` (ISO string | null): When subscription was canceled
+
+### DisengagedUser
+Shared frontend type for `GET /api/disengaged-users`:
+- `disengagementRisk` (0–100): Calculated risk score
+- `priorityLevel` (0–3): Priority bucket (3 = urgent, 0 = normal)
+- `attentionFlags` (string[]): Contextual flags like "Recent churn", "Failed conversion"
+- `daysSinceCanceled` (number | null): Days since user unsubscribed
+- `isFailedConversion`, `isRecentChurn`, `isOnboardingStall`, `isLongTermSilence`: Boolean detection flags
+- Plus all core user fields: `id`, `email`, `name`, `daysSinceJoined`, `daysSinceLastRead`, `avgReadGap`, etc.

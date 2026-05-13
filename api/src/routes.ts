@@ -236,6 +236,8 @@ router.get("/user-summaries", (_req, res) => {
         ? {
             planType: latestSubscription.planType,
             status: latestSubscription.status,
+            createdAt: latestSubscription.createdAt,
+            canceledAt: latestSubscription.canceledAt,
           }
         : null,
 
@@ -253,6 +255,286 @@ router.get("/user-summaries", (_req, res) => {
   });
 
   res.json(summaries);
+});
+
+/**
+ * Surface users at risk of disengagement.
+ *
+ * A user is considered disengaged if they have not replied in the last 7 days.
+ * The disengagement risk score measures how much a user went quiet relative to
+ * their normal pattern:
+ * - Base risk: how many days since their last reply (0-50 scale, capped at 30d)
+ * - Multiplier: ratio of days silent to their average reply gap
+ *
+ * Example: A user who replies every 2 days going silent for 10 days is riskier
+ * than a user who replies every 7 days going silent for 10 days, all else equal.
+ */
+router.get("/disengaged-users", (_req, res) => {
+  const DISENGAGEMENT_THRESHOLD_DAYS = 7;
+  const MIN_READS = 4;
+
+  // Build the same summaries as /user-summaries, then filter and score.
+  const now = new Date();
+  const since7d = new Date(now.getTime() - 7 * MS_PER_DAY);
+
+  function isoDayString(value: string): string | null {
+    const date = asValidDate(value);
+    if (!date) return null;
+    return date.toISOString().slice(0, 10);
+  }
+
+  function computeStreakFromIsoDays(days: string[]): {
+    current: number;
+    longest: number;
+  } {
+    const uniqueDays = Array.from(new Set(days)).sort();
+    if (uniqueDays.length === 0) return { current: 0, longest: 0 };
+
+    const toDayNumber = (d: string) =>
+      Math.floor(new Date(`${d}T00:00:00.000Z`).getTime() / MS_PER_DAY);
+    const dayNums = uniqueDays.map(toDayNumber);
+
+    let longest = 1;
+    let run = 1;
+    for (let i = 1; i < dayNums.length; i++) {
+      if (dayNums[i] - dayNums[i - 1] === 1) {
+        run++;
+      } else {
+        run = 1;
+      }
+      if (run > longest) longest = run;
+    }
+
+    let current = 1;
+    for (let i = dayNums.length - 1; i > 0; i--) {
+      if (dayNums[i] - dayNums[i - 1] === 1) current++;
+      else break;
+    }
+
+    return { current, longest };
+  }
+
+  // Precompute cohort median of average read gaps from users with sufficient history.
+  function median(values: number[]): number {
+    if (values.length === 0) return 0;
+    const s = values.slice().sort((a, b) => a - b);
+    const mid = Math.floor(s.length / 2);
+    if (s.length % 2 === 1) return s[mid];
+    return (s[mid - 1] + s[mid]) / 2;
+  }
+
+  const cohortAvgGaps: number[] = [];
+  for (const u of db.users) {
+    const inbound = db.inboundEmailLog
+      .filter((l) => l.userId === u.id)
+      .map((l) => asValidDate(l.receivedAt))
+      .filter((d): d is Date => d !== null)
+      .map((d) => d.getTime())
+      .sort((a, b) => b - a)
+      .slice(0, 5);
+
+    if (inbound.length >= MIN_READS) {
+      const gaps: number[] = [];
+      for (let i = 0; i < inbound.length - 1; i++) {
+        gaps.push((inbound[i] - inbound[i + 1]) / MS_PER_DAY);
+      }
+      if (gaps.length > 0) {
+        const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+        cohortAvgGaps.push(avg);
+      }
+    }
+  }
+
+  const cohortMedianGap = Math.max(3, median(cohortAvgGaps) || 7);
+  const MAX_EXPECTATION_MULTIPLIER = 3;
+
+  // Compute disengaged users with risk scores.
+  const disengaged = db.users
+    .map((user) => {
+      const readings = db.readings.filter((r) => r.userId === user.id);
+      const subscriptions = db.subscriptions.filter((s) => s.userId === user.id);
+      const readTimes = readings
+        .map((r) => asValidDate(r.markedReadAt))
+        .filter((d): d is Date => d !== null)
+        .map((d) => d.getTime())
+        .sort((a, b) => b - a)
+        .slice(0, 5);
+
+      const lastReadAt =
+        readTimes.length > 0 ? new Date(readTimes[0]).toISOString() : null;
+      const daysSinceJoined = (() => {
+        const created = asValidDate(user.createdAt);
+        if (!created) return null;
+        return Math.floor((now.getTime() - created.getTime()) / MS_PER_DAY);
+      })();
+      const daysSinceLastRead = (() => {
+        if (readTimes.length === 0) return daysSinceJoined;
+        const last = new Date(readTimes[0]);
+        return Math.floor((now.getTime() - last.getTime()) / MS_PER_DAY);
+      })();
+
+      // Only include users who have not read for 7+ days.
+      if (
+        daysSinceLastRead === null ||
+        daysSinceLastRead < DISENGAGEMENT_THRESHOLD_DAYS
+      ) {
+        return null;
+      }
+
+      // Decide whether to trust personal median gap or fallback to cohort median.
+      let avgReadGap: number;
+      if (readTimes.length >= MIN_READS) {
+        const gaps: number[] = [];
+        for (let i = 0; i < readTimes.length - 1; i++) {
+          gaps.push((readTimes[i] - readTimes[i + 1]) / MS_PER_DAY);
+        }
+        avgReadGap = gaps.length > 0 ? median(gaps) : cohortMedianGap;
+      } else {
+        avgReadGap = cohortMedianGap;
+      }
+
+      if (!isFinite(avgReadGap) || avgReadGap <= 0)
+        avgReadGap = cohortMedianGap;
+
+      const latestSubscription = (() => {
+        if (subscriptions.length === 0) return null;
+        const latest = subscriptions.slice().sort((a, b) => {
+          const aDate =
+            asValidDate(a.updatedAt) ?? asValidDate(a.createdAt) ?? new Date(0);
+          const bDate =
+            asValidDate(b.updatedAt) ?? asValidDate(b.createdAt) ?? new Date(0);
+          return bDate.getTime() - aDate.getTime();
+        })[0];
+        return latest ?? null;
+      })();
+
+      const daysSinceSubscribed = (() => {
+        if (!latestSubscription?.createdAt) return null;
+        const subDate = asValidDate(latestSubscription.createdAt);
+        if (!subDate) return null;
+        return Math.floor((now.getTime() - subDate.getTime()) / MS_PER_DAY);
+      })();
+
+      const daysSinceCanceled = (() => {
+        if (!latestSubscription?.canceledAt) return null;
+        const cancelDate = asValidDate(latestSubscription.canceledAt);
+        if (!cancelDate) return null;
+        return Math.floor((now.getTime() - cancelDate.getTime()) / MS_PER_DAY);
+      })();
+
+      const subscriptionStatus = latestSubscription?.status ?? null;
+      const isSubscribed =
+        subscriptionStatus === "active" || subscriptionStatus === "trialing";
+      const hasNeverRead = lastReadAt === null;
+      const isFailedConversion = !isSubscribed && hasNeverRead && daysSinceJoined != null && daysSinceJoined >= 7;
+      const isRecentChurn = !isSubscribed && !hasNeverRead;
+      // Onboarding stall: subscribed but never opened first email within first 14 days of subscription
+      const isOnboardingStall =
+        isSubscribed && hasNeverRead && daysSinceSubscribed != null && daysSinceSubscribed < 14;
+      // Long-term silence: subscribed but silent for 30+ days
+      const isLongTermSilence =
+        isSubscribed && daysSinceLastRead != null && daysSinceLastRead >= 30;
+
+      const attentionFlags: string[] = [];
+      if (hasNeverRead) attentionFlags.push("No reads yet");
+      if (isOnboardingStall) attentionFlags.push("Onboarding stall");
+      if (isLongTermSilence) attentionFlags.push("Long-term silence");
+      if (isRecentChurn) attentionFlags.push("Recent churn");
+      if (isFailedConversion) attentionFlags.push("Failed conversion");
+
+      // Disengagement risk: how much they're deviating from their normal reading pattern.
+      const daysQuietRisk = (clampNumber(daysSinceLastRead, 0, 30) / 30) * 50;
+
+      const rawMultiplier = daysSinceLastRead / avgReadGap;
+      const softened = Math.max(1, 1 + (rawMultiplier - 1) * 0.03);
+      const expectationMultiplier = Math.min(
+        MAX_EXPECTATION_MULTIPLIER,
+        softened,
+      );
+      let disengagementRisk = Math.round(
+        clampNumber(daysQuietRisk * expectationMultiplier, 0, 100),
+      );
+
+      // Recent churn signal: if unsubscribed but was previously engaged (low avg gap),
+      // boost the score to reflect urgency of re-engagement or retention follow-up.
+      if (isRecentChurn && avgReadGap < 7) {
+        disengagementRisk = Math.max(disengagementRisk, 80);
+      }
+
+      // New subscriber onboarding urgency: if newly subscribed but hasn't opened first email,
+      // boost score to prioritize onboarding follow-up or troubleshooting.
+      if (isOnboardingStall && isSubscribed) {
+        disengagementRisk = Math.max(disengagementRisk, 65);
+      }
+
+      // Failed conversion signal: joined but never subscribed and never engaged.
+      // High priority for re-engagement or sales follow-up.
+      if (isFailedConversion) {
+        disengagementRisk = Math.max(disengagementRisk, 85);
+      }
+
+      // Long-term silence: flag as visible but don't aggressively penalize scores.
+      // Instead of reducing their score, apply a reasonable ceiling so paying
+      // long-term silent users remain visible but do not crowd urgent buckets.
+      if (isLongTermSilence && isSubscribed) {
+        // Long-term silent subscribers: compress high scores toward a baseline
+        // so they don't sit at the extreme 100s, then apply a small boost to
+        // keep visibility. This is not a hard cap; it's a soft compression.
+        const BASELINE = 65;
+        const COMPRESS_FACTOR = 0.25; // how strongly to pull high scores toward baseline
+        const LONG_TERM_SILENCE_BOOST = 6;
+        const compressed = Math.round(BASELINE + (disengagementRisk - BASELINE) * COMPRESS_FACTOR);
+        disengagementRisk = Math.round(Math.min(100, compressed + LONG_TERM_SILENCE_BOOST));
+      }
+
+      // Priority buckets: higher priority items should surface first regardless of raw score.
+      // 3 = urgent (failed conversion, recent churn)
+      // 2 = high (onboarding stall)
+      // 1 = medium (long-term silence)
+      // 0 = normal
+      let priorityLevel = 0;
+      if (isFailedConversion || isRecentChurn) priorityLevel = 3;
+      else if (isOnboardingStall) priorityLevel = 2;
+      else if (isLongTermSilence) priorityLevel = 1;
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        timezone: user.timezone,
+        createdAt: user.createdAt,
+        lastReadAt,
+        daysSinceJoined,
+        daysSinceLastRead,
+        avgReadGap: Math.round(avgReadGap * 10) / 10, // round to 1 decimal
+        subscriptionStatus,
+        isSubscribed,
+        hasNeverRead: lastReadAt === null,
+        subscriptionCreatedAt: latestSubscription?.createdAt ?? null,
+        daysSinceSubscribed,
+        daysSinceCanceled,
+        isRecentChurn,
+        isOnboardingStall,
+        isLongTermSilence,
+        isFailedConversion,
+        priorityLevel,
+        attentionFlags,
+        disengagementRisk,
+      };
+    })
+    .filter((u): u is NonNullable<typeof u> => u !== null)
+    .sort((a, b) => {
+      // Primary: priority level (higher first)
+      if (b.priorityLevel !== a.priorityLevel) return b.priorityLevel - a.priorityLevel;
+      // For long-term silence bucket, order by who has been silent the longest
+      if (a.priorityLevel === 1 && b.priorityLevel === 1) {
+        return (b.daysSinceLastRead ?? 0) - (a.daysSinceLastRead ?? 0);
+      }
+      // Otherwise, fallback to disengagement risk
+      return b.disengagementRisk - a.disengagementRisk;
+    });
+
+  res.json(disengaged);
 });
 
 /**

@@ -86,3 +86,34 @@ I would not start with a database migration for 5,000 users alone. My position i
 - I am also unsure whether it would be better long-term to calculate metrics like churn risk, streaks, and engagement dynamically from the database each request, or precompute and store them per user. Precomputing would improve performance, but it also adds complexity around making sure the stored metrics stay updated whenever the underlying user activity changes.
 
 - I am also uncertain how many internal users would be accessing the dashboard at the same time. 5,000 stored users may still be manageable on a single server, but multiple people making requests simultaneously could increase backend load and change where the main bottlenecks appear.
+
+## Task 2 — Disengaged users
+
+I defined a disengaged user as someone who has not read in the last 7 days. The goal was to make a short, practical list of people the team should contact first.
+
+The score is simple: the longer someone has gone without reading, the higher their risk. I also compare that silence with their usual reading pattern so the list can distinguish between someone who is normally active and someone who reads less often.
+
+To keep the score easy to read, I only use a personal reading pattern when there is enough history. If there are too few reads, I fall back to the group average instead. I also cap the final multiplier so the list does not fill up with many users showing the same maximum score.
+
+I also flag and score people into four priority buckets to align action with business impact:
+
+- **Priority 3 (urgent) - Failed conversions**: Joined but never subscribed or engaged (≥7 days) — acquisition funnel failure. These are urgent and receive a high minimum score (≥85).
+- **Priority 3 (urgent)— Recent churn**: Unsubscribed but were reading actively before — retention failure. These are urgent and receive a high minimum score (≥80).
+- **Priority 2 (high) — Onboarding stalls**: Subscribed but never opened a first email (within 14 days of subscribing) — activation friction. These are high priority and get a minimum score (≥65).
+- **Priority 1 (medium) — Long-term silence**: Subscribed but silent for 30+ days — visible but lower relative risk. Their scores are compressed to the 70–80 range so they stay visible but don't overshadow urgent cases like recent churn. Within this bucket, users are ordered by who has been silent the longest.
+
+We sort results by priority first, then by score. For the long-term-silence bucket the sort specifically orders by `daysSinceLastRead` (longest silent first) so the team can address the oldest silent accounts first.
+
+This keeps the list focused on the right business problems in order of priority: Acquisition failures and recent churn are handled first, then activation issues, then long-term maintenance or reactivation efforts.
+
+This keeps the list simple and actionable: who to reach out to and in what order.
+
+### Where I am uncertain
+
+- I am unsure whether 7 days is the right disengagement threshold long-term. It works as a simple baseline, but the ideal timeframe may depend on how often users are expected to read emails in normal usage.
+
+- I chose to focus on reading behavior rather than replies because opening and consuming content feels like a more reliable engagement signal. However, I am uncertain whether some highly engaged users may still be underrated if they mainly engage through replies or other actions outside the tracked read data.
+
+- I am also uncertain about where to cut off users who have been disengaged for a very long time. At some point, users who have been inactive for months may no longer be realistically recoverable, so continuing to rank them alongside recently disengaged users could reduce the usefulness of the outreach list.
+
+- Consider sporadic users: some users read infrequently by habit (monthly or irregularly) and may appear as long-term silent despite still being a satisfied paying customer. The current soft-compression + small boost approach attempts to keep these paying but infrequent users visible without treating them as urgent. We should revisit this heuristic after observing its behavior in production and consider cohort-aware thresholds or additional signals (e.g., payment activity, reply frequency) to avoid unnecessary outreach.
