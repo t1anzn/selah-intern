@@ -36,6 +36,7 @@ Function `computeStreakFromIsoDays(days)` calculates two values from a user's re
 - **Longest streak:** The longest sequence of consecutive days ever recorded.
 
 The calculation:
+
 1. Extract unique ISO day strings from all reading events (deduped by date).
 2. Sort dates in ascending order.
 3. Scan through consecutive day numbers to find runs of 1-day gaps.
@@ -133,6 +134,7 @@ Identifies users who haven't read in the last 7 days and surfaces them with a 4-
 ### Long-Term Silence Scoring Detail
 
 Instead of aggressively reducing scores, paying users with 30+ days silence get:
+
 1. Soft compression: `baseline + (risk - baseline) × 0.25` pulls high scores toward 65
 2. Additive boost: +6 to maintain visibility
 3. Result: Scores cluster around 73–80 instead of 100, but ordering is preserved
@@ -174,14 +176,18 @@ Both `/api/user-summaries` and `/api/disengaged-users` now include `daysSinceCan
 **File:** web/src/types.ts
 
 ### UserSummary
+
 Shared frontend type for `GET /api/user-summaries`:
+
 - `scores.churnRisk` (0–100): Raw risk score
 - `scores.churnRiskLabel` ('low' | 'medium' | 'high'): Risk classification
 - `hasDeliveryIssue` (boolean): Email reachability flag
 - `subscription.canceledAt` (ISO string | null): When subscription was canceled
 
 ### DisengagedUser
+
 Shared frontend type for `GET /api/disengaged-users`:
+
 - `disengagementRisk` (0–100): Calculated risk score
 - `priorityLevel` (0–3): Priority bucket (3 = urgent, 0 = normal)
 - `attentionFlags` (string[]): Contextual flags like "Recent churn", "Failed conversion"

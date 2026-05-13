@@ -1,4 +1,4 @@
-import type { DisengagedUser } from '../types';
+import type { DisengagedUser } from "../types";
 
 interface DisengagedViewProps {
   users: DisengagedUser[];
@@ -31,42 +31,46 @@ export function DisengagedView({ users, loading, error }: DisengagedViewProps) {
       </div>
 
       {users.map((user) => {
-        let riskColor = '#388e3c';
+        let riskColor = "#388e3c";
         if (user.isFailedConversion) {
-          riskColor = '#e53935';
+          riskColor = "#e53935";
         } else if (user.isRecentChurn) {
-          riskColor = '#c62828';
+          riskColor = "#c62828";
         } else if (user.isOnboardingStall && user.isSubscribed) {
-          riskColor = '#f57c00';
+          riskColor = "#f57c00";
         } else if (user.disengagementRisk >= 70) {
-          riskColor = '#d32f2f';
+          riskColor = "#d32f2f";
         } else if (user.disengagementRisk >= 40) {
-          riskColor = '#f57c00';
+          riskColor = "#f57c00";
         }
 
         const getFlagColor = (flag: string): string => {
-          if (flag.includes('Recent churn')) return '#c62828';
-          if (flag.includes('Failed conversion')) return '#e53935';
-          if (flag.includes('Onboarding stall')) return '#f57c00';
-          if (flag.includes('Long-term silence')) return '#f57c00';
-          if (flag.includes('No active subscription')) return '#d32f2f';
-          if (flag.includes('No reads yet')) return '#666';
-          return '#999';
+          if (flag.includes("Recent churn")) return "#c62828";
+          if (flag.includes("Failed conversion")) return "#e53935";
+          if (flag.includes("Onboarding stall")) return "#f57c00";
+          if (flag.includes("Long-term silence")) return "#f57c00";
+          if (flag.includes("No active subscription")) return "#d32f2f";
+          if (flag.includes("No reads yet")) return "#666";
+          return "#999";
         };
 
         return (
-          <div key={user.id} className="disengaged-row" style={{ borderLeftColor: riskColor }}>
+          <div
+            key={user.id}
+            className="disengaged-row"
+            style={{ borderLeftColor: riskColor }}
+          >
             <div className="col-name">
-              <div className="user-name">{user.name || 'Unknown'}</div>
+              <div className="user-name">{user.name || "Unknown"}</div>
               <div className="user-email">{user.email}</div>
               <div className="flags-container">
                 <span
                   className="flag-pill"
                   style={{
-                    backgroundColor: user.isSubscribed ? '#4caf50' : '#d32f2f',
+                    backgroundColor: user.isSubscribed ? "#4caf50" : "#d32f2f",
                   }}
                 >
-                  {user.isSubscribed ? 'Subscribed' : 'Not subscribed'}
+                  {user.isSubscribed ? "Subscribed" : "Not subscribed"}
                 </span>
                 {user.attentionFlags.map((flag) => (
                   <span
@@ -86,39 +90,46 @@ export function DisengagedView({ users, loading, error }: DisengagedViewProps) {
             </div>
             <div className="col-gap">{user.avgReadGap} days</div>
             <div className="col-last-reply">
-              {user.lastReadAt ? new Date(user.lastReadAt).toLocaleDateString() : 'No reads yet'}
+              {user.lastReadAt
+                ? new Date(user.lastReadAt).toLocaleDateString()
+                : "No reads yet"}
             </div>
             <div className="col-subscribed">
               {user.daysSinceCanceled !== null ? (
-                <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
+                <div style={{ fontSize: "12px", lineHeight: "1.4" }}>
                   <div>
-                    {user.subscriptionCreatedAt && user.daysSinceSubscribed !== null
+                    {user.subscriptionCreatedAt &&
+                    user.daysSinceSubscribed !== null
                       ? `${new Date(user.subscriptionCreatedAt).toLocaleDateString()} (${user.daysSinceSubscribed} days)`
-                      : 'N/A'}
+                      : "N/A"}
                   </div>
-                  <div style={{ fontWeight: '600', color: '#c62828' }}>
+                  <div style={{ fontWeight: "600", color: "#c62828" }}>
                     → Canceled {user.daysSinceCanceled} days ago
                   </div>
                 </div>
               ) : !user.isSubscribed && user.subscriptionCreatedAt ? (
-                <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
+                <div style={{ fontSize: "12px", lineHeight: "1.4" }}>
                   <div>
                     {user.daysSinceSubscribed !== null
                       ? `${new Date(user.subscriptionCreatedAt).toLocaleDateString()} (${user.daysSinceSubscribed} days)`
-                      : 'N/A'}
+                      : "N/A"}
                   </div>
-                  <div style={{ fontWeight: '600', color: '#c62828' }}>
+                  <div style={{ fontWeight: "600", color: "#c62828" }}>
                     → Canceled (missing date)
                   </div>
                 </div>
-              ) : user.subscriptionCreatedAt && user.daysSinceSubscribed !== null ? (
+              ) : user.subscriptionCreatedAt &&
+                user.daysSinceSubscribed !== null ? (
                 `${new Date(user.subscriptionCreatedAt).toLocaleDateString()} (${user.daysSinceSubscribed} days)`
               ) : (
-                'Never'
+                "Never"
               )}
             </div>
             <div className="col-risk">
-              <span className="risk-badge" style={{ backgroundColor: riskColor }}>
+              <span
+                className="risk-badge"
+                style={{ backgroundColor: riskColor }}
+              >
                 {user.disengagementRisk}
               </span>
             </div>

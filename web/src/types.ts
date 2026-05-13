@@ -16,7 +16,7 @@ export type DisengagedUser = {
   daysSinceJoined: number | null;
   daysSinceLastRead: number;
   avgReadGap: number;
-  subscriptionStatus: 'active' | 'trialing' | 'past_due' | 'canceled' | null;
+  subscriptionStatus: "active" | "trialing" | "past_due" | "canceled" | null;
   isSubscribed: boolean;
   hasNeverRead: boolean;
   subscriptionCreatedAt: string | null;
@@ -60,12 +60,12 @@ export type UserSummary = {
 
   scores: {
     churnRisk: number;
-    churnRiskLabel: 'low' | 'medium' | 'high';
+    churnRiskLabel: "low" | "medium" | "high";
   };
 
   subscription: {
-    planType: 'weekly' | 'yearly';
-    status: 'active' | 'past_due' | 'canceled' | 'trialing';
+    planType: "weekly" | "yearly";
+    status: "active" | "past_due" | "canceled" | "trialing";
   } | null;
 
   revenue: {
@@ -76,6 +76,6 @@ export type UserSummary = {
     total: number;
     lastNoteAt: string | null;
   };
-  
+
   hasDeliveryIssue: boolean;
 };
