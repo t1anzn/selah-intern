@@ -1,5 +1,15 @@
 # Selah growth-tooling exercise
 
+The biggest trade-off I made was prioritising clarity and actionability over adding more metrics or complexity. I focused on making the dashboard easy to scan and useful for a growth team making day-to-day decisions, even if that meant simplifying some of the underlying scoring and engagement logic.
+
+AI helped most during implementation and iteration. I used it to speed up boilerplate work, explore and refine the equations behind the churn and engagement scoring and improve the clarity of the writeup. However, it also occasionally slowed me down because I still had to decide which metrics actually mattered and how they should be weighted before prompting the AI. In practice, I often had to stop and think through the product logic myself first, because the AI could not determine which engagement signals or business priorities I personally considered most important. I eventually reframed my prompts toward asking the AI to question my assumptions, compare trade-offs, or help me think through what I actually wanted the dashboard to optimize for. I still had to go back and correct or adjust many of the generated solutions so they better aligned with the goals and priorities of the dashboard.
+
+With another week, I would focus on scalability, validation, and codebase maintainability. That would include adding pagination and filtering to the API, improving backend lookup efficiency, testing the scoring heuristics against more realistic datasets, and improving the engagement visualisations with smoothing or cohort comparisons. I would also spend time refactoring parts of the codebase to better separate business logic, scoring logic, and data access responsibilities so the system would scale more cleanly as additional metrics, features, and dashboard views are added in the future.
+
+I approached the exercise more like building an MVP for a small growth team rather than trying to maximise feature count. My main priority was making the dashboard easy to scan at a glance so someone could quickly understand engagement trends, identify risky users, and decide who needs attention first without digging through dense analytics views. That influenced a lot of the design trade-offs throughout the project.
+
+I intentionally kept the user cards focused on the most actionable engagement signals instead of showing every available piece of user data. I cut down a lot of lower-value information to keep the cards less text-dense, easier to scan, and more useful during fast decision-making. The overall goal was to surface the essential context quickly such as recent reading activity, streak behavior, onboarding state, delivery issues, and churn risk, while keeping the UI lightweight and readable enough that trends and priorities stand out immediately.
+
 ## Task 1: User card details
 
 I expanded each user card so a growth team can understand the user at a glance without opening a detail page. The main goal was to make one card answer three main questions quickly:
@@ -117,3 +127,15 @@ This keeps the list simple and actionable: who to reach out to and in what order
 - I am also uncertain about where to cut off users who have been disengaged for a very long time. At some point, users who have been inactive for months may no longer be realistically recoverable, so continuing to rank them alongside recently disengaged users could reduce the usefulness of the outreach list.
 
 - Consider sporadic users: some users read infrequently by habit (monthly or irregularly) and may appear as long-term silent despite still being a satisfied paying customer. The current soft-compression + small boost approach attempts to keep these paying but infrequent users visible without treating them as urgent. We should revisit this heuristic after observing its behavior in production and consider cohort-aware thresholds or additional signals (e.g., payment activity, reply frequency) to avoid unnecessary outreach.
+
+## Task 3 — Engagement over time
+
+I defined engagement using two explicit user behaviors: reads (chapters opened) and replies (notes created). Reads are treated as the primary engagement signal because they show whether users are actively consuming content. Replies are secondary but still valuable because they indicate deeper interaction and participation, which can contribute to stronger retention over time.
+
+The visualization displays reads and replies as separate trend lines alongside a combined total engagement line. This allows the growth team to quickly identify whether overall engagement is increasing or declining, while also revealing whether reads and replies are moving together or diverging. For example, users may continue reading consistently while replying less often, which could suggest reduced interaction despite stable content consumption.
+
+One chart with a toggle (7d/30d/all-time) keeps the view clean, reduces cognitive load and lets the team easily spot whether a trend is short-term noise or sustained. Summary cards show the current volume and momentum % vs the previous period to show the trajectory of the engagement trends.
+
+- An uncertainty I have is how much short-term volatility should influence the trend view. Daily engagement can fluctuate naturally based on sending schedules, weekends, or seasonality, so the chart may eventually need smoothing or rolling averages to avoid overreacting to temporary spikes or dips. Due to small user population, I didn't worry about that for the mean-time and this is probably something to consider when scaling to a larger user base.
+
+- I am also unsure whether the current engagement definition captures enough of the user journey. Reads and replies are useful signals, but other behaviors such as subscription renewals, streak consistency, or time between reads may reveal different forms of engagement that are not currently reflected in the visualization. However, I went with the strongest signals for simplicity.

@@ -194,3 +194,29 @@ Shared frontend type for `GET /api/disengaged-users`:
 - `daysSinceCanceled` (number | null): Days since user unsubscribed
 - `isFailedConversion`, `isRecentChurn`, `isOnboardingStall`, `isLongTermSilence`: Boolean detection flags
 - Plus all core user fields: `id`, `email`, `name`, `daysSinceJoined`, `daysSinceLastRead`, `avgReadGap`, etc.
+
+---
+
+## Engagement Trends
+
+**Files:** web/src/components/EngagementView.tsx, web/src/index.css, api/src/routes.ts
+
+Task 3 treats engagement as two explicit signals:
+
+- **Reads**: chapters opened
+- **Replies**: notes created / replies sent
+
+The chart uses a single toggle between **7 days**, **30 days**, and **all time** so the team can compare short-term and long-term momentum without switching views. The chart shows reads, replies, and a combined total line, with the combined line emphasized as the main summary signal.
+
+Implementation details:
+
+- Uses Recharts for the chart layer.
+- Daily ranges render as daily points; all-time is grouped into weekly averages to keep the chart readable.
+- Summary cards are split into current volume and trend cards, with the combined metric visually highlighted.
+- Tooltip shows reads, replies, and combined volume for the selected day/week.
+
+Why this shape:
+
+- Reads are the primary signal because they show content consumption.
+- Replies are kept separate because they show deeper interaction and are the clearest sign of active engagement.
+- The combined line gives the growth team one quick momentum signal while still letting them see whether the change is driven by reads, replies, or both.

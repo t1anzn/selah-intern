@@ -6,6 +6,24 @@ export type User = {
   createdAt: string;
 };
 
+export type DailyMetric = {
+  id: number;
+  date: string;
+  totalUsers: number;
+  activeUsers: number;
+  engagedUsers: number;
+  newUsers: number;
+  pausedUsers: number;
+  chaptersSent: number;
+  chaptersRead: number;
+  notesCreated: number;
+  llmCalls: number;
+  llmInputTokens: number;
+  llmOutputTokens: number;
+  avgTimeToReadMinutes: number | null;
+  createdAt: string;
+};
+
 export type DisengagedUser = {
   id: number;
   email: string;

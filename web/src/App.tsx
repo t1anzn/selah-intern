@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { UserCard } from "./components/UserCard";
 import { DisengagedView } from "./components/DisengagedView";
-import type { UserSummary, DisengagedUser } from "./types";
+import { EngagementView } from "./components/EngagementView";
+import type { DailyMetric, UserSummary, DisengagedUser } from "./types";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"all" | "disengaged">("all");
+  const [activeTab, setActiveTab] = useState<
+    "all" | "disengaged" | "engagement"
+  >("all");
 
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +16,10 @@ export default function App() {
   const [disengaged, setDisengaged] = useState<DisengagedUser[]>([]);
   const [disengagedLoading, setDisengagedLoading] = useState(false);
   const [disengagedError, setDisengagedError] = useState<string | null>(null);
+
+  const [engagement, setEngagement] = useState<DailyMetric[]>([]);
+  const [engagementLoading, setEngagementLoading] = useState(false);
+  const [engagementError, setEngagementError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/user-summaries")
@@ -27,7 +34,7 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleTabChange = (tab: "all" | "disengaged") => {
+  const handleTabChange = (tab: "all" | "disengaged" | "engagement") => {
     setActiveTab(tab);
 
     // Fetch disengaged users only when switching to that tab.
@@ -45,6 +52,22 @@ export default function App() {
           ),
         )
         .finally(() => setDisengagedLoading(false));
+    }
+
+    if (tab === "engagement" && engagement.length === 0 && !engagementLoading) {
+      setEngagementLoading(true);
+      fetch("/api/daily-metrics")
+        .then((res) => {
+          if (!res.ok) throw new Error(`API returned ${res.status}`);
+          return res.json();
+        })
+        .then((data: DailyMetric[]) => setEngagement(data))
+        .catch((err: unknown) =>
+          setEngagementError(
+            err instanceof Error ? err.message : "Unknown error",
+          ),
+        )
+        .finally(() => setEngagementLoading(false));
     }
   };
 
@@ -69,6 +92,12 @@ export default function App() {
           >
             Disengaged ({disengaged.length})
           </button>
+          <button
+            className={`tab-button ${activeTab === "engagement" ? "active" : ""}`}
+            onClick={() => handleTabChange("engagement")}
+          >
+            Engagement
+          </button>
         </div>
       </header>
 
@@ -90,6 +119,14 @@ export default function App() {
           users={disengaged}
           loading={disengagedLoading}
           error={disengagedError}
+        />
+      )}
+
+      {activeTab === "engagement" && (
+        <EngagementView
+          metrics={engagement}
+          loading={engagementLoading}
+          error={engagementError}
         />
       )}
     </main>
