@@ -396,7 +396,7 @@ export function EngagementView({
           >
             <ResponsiveContainer width="100%" height={280}>
               <LineChart
-                data={chartSeries}
+                data={chartData}
                 margin={{ top: 20, right: 20, left: 0, bottom: 18 }}
               >
                 <CartesianGrid
